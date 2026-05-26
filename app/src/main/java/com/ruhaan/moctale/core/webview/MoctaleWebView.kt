@@ -45,6 +45,7 @@ fun MoctaleWebView(url: String) {
 
     var activeWebView by remember { mutableStateOf<WebView?>(null) }
     var canGoBack by remember { mutableStateOf(false) }
+    var lastAttemptedUrl by remember { mutableStateOf(url) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -72,7 +73,7 @@ fun MoctaleWebView(url: String) {
                         setColorSchemeColors(android.graphics.Color.WHITE)
 
                         setOnRefreshListener {
-                            mainWebView.reload()
+                            mainWebView.loadUrl(lastAttemptedUrl)
                         }
                     }
 
@@ -95,7 +96,8 @@ fun MoctaleWebView(url: String) {
                             onCanGoBackChange = { canGoBack = it },
                             onPageFinishedLoading = {
                                 swipeRefreshLayout.isRefreshing = false
-                            }
+                            },
+                            onUrlUpdated = { newUrl -> lastAttemptedUrl = newUrl }
                         )
 
                         webChromeClient = MoctaleWebChromeClient(
