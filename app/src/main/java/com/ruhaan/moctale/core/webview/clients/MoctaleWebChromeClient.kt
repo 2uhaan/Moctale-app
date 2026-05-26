@@ -21,7 +21,6 @@ class MoctaleWebChromeClient(
     private val mainWebView: WebView,
     private val frameLayout: FrameLayout,
     private val onUpdateActiveWebView: (WebView?) -> Unit,
-    private val onInternetStateChange: (Boolean) -> Unit,
     private val onCanGoBackChange: (Boolean) -> Unit,
     private val onDownloadSuccess: () -> Unit
 ) : WebChromeClient() {
@@ -100,10 +99,7 @@ class MoctaleWebChromeClient(
                     error: WebResourceError?,
                 ) {
                     super.onReceivedError(view, request, error)
-
-                    if (request?.isForMainFrame != true) return
-
-                    mainHandler.post { onInternetStateChange(true) }
+                    android.util.Log.d("WebViewError", "onReceivedError (Popup): url=${request?.url}, isMainFrame=${request?.isForMainFrame}, error=${error?.description}")
                 }
 
                 override fun onPageFinished(
@@ -116,13 +112,6 @@ class MoctaleWebChromeClient(
 
                     onUpdateActiveWebView(view)
                     onCanGoBackChange(view?.canGoBack() == true)
-
-                    val isErrorPage =
-                        url == null || url == "about:blank" || url.startsWith("chrome-error://")
-
-                    if (!isErrorPage) {
-                        mainHandler.post { onInternetStateChange(false) }
-                    }
 
                     view?.evaluateJavascript(WebViewScripts.injectShareScript, null)
                     view?.evaluateJavascript(WebViewScripts.injectDownloadScript, null)
