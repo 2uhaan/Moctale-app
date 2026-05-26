@@ -7,19 +7,11 @@ import android.webkit.CookieManager
 import android.webkit.WebView
 import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -27,10 +19,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -54,7 +43,6 @@ fun MoctaleWebView(url: String) {
     }
 
     var activeWebView by remember { mutableStateOf<WebView?>(null) }
-    var showNoInternet by remember { mutableStateOf(false) }
     var canGoBack by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -68,10 +56,6 @@ fun MoctaleWebView(url: String) {
     ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
-            update = { frameLayout ->
-                frameLayout.visibility =
-                    if (showNoInternet) android.view.View.GONE else android.view.View.VISIBLE
-            },
             factory = { context ->
                 FrameLayout(context).apply {
                     val frameLayout = this
@@ -89,7 +73,6 @@ fun MoctaleWebView(url: String) {
                             context = context,
                             mainHandler = mainHandler,
                             onUpdateActiveWebView = { activeWebView = it },
-                            onInternetStateChange = { showNoInternet = it },
                             onCanGoBackChange = { canGoBack = it }
                         )
 
@@ -99,7 +82,6 @@ fun MoctaleWebView(url: String) {
                             mainWebView = this,
                             frameLayout = frameLayout,
                             onUpdateActiveWebView = { activeWebView = it },
-                            onInternetStateChange = { showNoInternet = it },
                             onCanGoBackChange = { canGoBack = it },
                             onDownloadSuccess = {
                                 scope.launch { snackbarHostState.showSnackbar("Saved to gallery") }
@@ -114,15 +96,6 @@ fun MoctaleWebView(url: String) {
             },
         )
 
-        if (showNoInternet) {
-            NoInternetScreen(
-                onRetry = {
-                    showNoInternet = false
-                    activeWebView?.reload()
-                },
-            )
-        }
-
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier.statusBarsPadding(),
@@ -130,45 +103,3 @@ fun MoctaleWebView(url: String) {
     }
 }
 
-@Composable
-fun NoInternetScreen(
-    onRetry: () -> Unit,
-) {
-
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = Color.Black,
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                text = "You're offline",
-                style = MaterialTheme.typography.headlineMedium,
-                color = Color.White,
-            )
-
-            Spacer(
-                modifier = Modifier.height(12.dp),
-            )
-
-            Text(
-                text = "Please check your internet connection.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.LightGray,
-            )
-
-            Spacer(
-                modifier = Modifier.height(24.dp),
-            )
-
-            Button(
-                onClick = onRetry,
-            ) {
-                Text("Reload")
-            }
-        }
-    }
-}
