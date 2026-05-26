@@ -22,7 +22,8 @@ class MoctaleWebViewClient(
     private val context: Context,
     private val mainHandler: Handler,
     private val onUpdateActiveWebView: (WebView?) -> Unit,
-    private val onCanGoBackChange: (Boolean) -> Unit
+    private val onCanGoBackChange: (Boolean) -> Unit,
+    private val onPageFinishedLoading: () -> Unit = {}
 ) : WebViewClient() {
 
     override fun shouldInterceptRequest(
@@ -141,6 +142,8 @@ class MoctaleWebViewClient(
         view?.evaluateJavascript(WebViewScripts.injectShareScript, null)
         view?.evaluateJavascript(WebViewScripts.injectDownloadScript, null)
         view?.evaluateJavascript(WebViewScripts.injectVideoFixScript, null)
+        
+        onPageFinishedLoading()
     }
 
     override fun doUpdateVisitedHistory(

@@ -6,6 +6,7 @@ import android.os.Looper
 import android.webkit.CookieManager
 import android.webkit.WebView
 import android.widget.FrameLayout
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -61,6 +62,19 @@ fun MoctaleWebView(url: String) {
                     val frameLayout = this
                     
                     lateinit var mainWebView: WebView
+                    
+                    val swipeRefreshLayout = SwipeRefreshLayout(context).apply {
+
+                        // Set the background color of the spinning loader (Black)
+                        setProgressBackgroundColorSchemeColor(android.graphics.Color.BLACK)
+
+                        // Set the color of the spinning arrow itself (White)
+                        setColorSchemeColors(android.graphics.Color.WHITE)
+
+                        setOnRefreshListener {
+                            mainWebView.reload()
+                        }
+                    }
 
                     mainWebView = WebView(context).apply {
                         activeWebView = this
@@ -73,7 +87,10 @@ fun MoctaleWebView(url: String) {
                             context = context,
                             mainHandler = mainHandler,
                             onUpdateActiveWebView = { activeWebView = it },
-                            onCanGoBackChange = { canGoBack = it }
+                            onCanGoBackChange = { canGoBack = it },
+                            onPageFinishedLoading = {
+                                swipeRefreshLayout.isRefreshing = false
+                            }
                         )
 
                         webChromeClient = MoctaleWebChromeClient(
@@ -91,7 +108,8 @@ fun MoctaleWebView(url: String) {
                         loadUrl(url)
                     }
 
-                    addView(mainWebView)
+                    swipeRefreshLayout.addView(mainWebView, android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
+                    addView(swipeRefreshLayout, android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
                 }
             },
         )
