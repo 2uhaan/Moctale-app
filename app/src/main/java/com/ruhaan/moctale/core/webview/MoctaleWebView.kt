@@ -76,7 +76,12 @@ fun MoctaleWebView(url: String) {
                         }
                     }
 
-                    mainWebView = WebView(context).apply {
+                    mainWebView = object : WebView(context) {
+                        override fun onProvideAutofillVirtualStructure(structure: android.view.ViewStructure?, flags: Int) {
+                            // Empty structure to disable autofill system
+                        }
+                    }.apply {
+                        importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
                         activeWebView = this
                         
                         configureMoctaleSettings(context) {
