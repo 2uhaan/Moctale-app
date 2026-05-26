@@ -6,10 +6,17 @@ import android.os.Handler
 import android.webkit.CookieManager
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.core.net.toUri
 import com.ruhaan.moctale.core.webview.WebViewScripts
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import java.security.MessageDigest
 
 class MoctaleWebViewClient(
     private val context: Context,
@@ -18,6 +25,72 @@ class MoctaleWebViewClient(
     private val onInternetStateChange: (Boolean) -> Unit,
     private val onCanGoBackChange: (Boolean) -> Unit
 ) : WebViewClient() {
+
+    override fun shouldInterceptRequest(
+        view: WebView?,
+        request: WebResourceRequest?,
+    ): WebResourceResponse? {
+        val urlString = request?.url?.toString() ?: return null
+        val method = request.method
+
+        if (method.equals("GET", ignoreCase = true) &&
+            urlString.contains("/_next/static/") &&
+            (urlString.endsWith(".js") || urlString.endsWith(".css") ||
+             urlString.endsWith(".png") || urlString.endsWith(".webp"))
+        ) {
+            try {
+                val extension = urlString.substringAfterLast('.', "")
+                val mimeType = when (extension) {
+                    "js" -> "application/javascript"
+                    "css" -> "text/css"
+                    "png" -> "image/png"
+                    "webp" -> "image/webp"
+                    else -> "application/octet-stream"
+                }
+
+                val digest = MessageDigest.getInstance("SHA-256")
+                val hashBytes = digest.digest(urlString.toByteArray(Charsets.UTF_8))
+                val hashString = hashBytes.joinToString("") { "%02x".format(it) }
+                val fileName = "$hashString.$extension"
+
+                val cacheDir = File(context.cacheDir, "next_static_cache")
+                if (!cacheDir.exists()) {
+                    cacheDir.mkdirs()
+                }
+
+                val cacheFile = File(cacheDir, fileName)
+
+                if (cacheFile.exists() && cacheFile.length() > 0) {
+                    return WebResourceResponse(mimeType, "UTF-8", FileInputStream(cacheFile))
+                }
+
+                val url = URL(urlString)
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 15000
+                connection.readTimeout = 15000
+
+                if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                    val tempFile = File(cacheDir, "$fileName.tmp")
+                    connection.inputStream.use { inputStream ->
+                        FileOutputStream(tempFile).use { outputStream ->
+                            inputStream.copyTo(outputStream)
+                        }
+                    }
+
+                    if (tempFile.exists() && tempFile.length() > 0) {
+                        tempFile.renameTo(cacheFile)
+                        return WebResourceResponse(mimeType, "UTF-8", FileInputStream(cacheFile))
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                return null
+            }
+        }
+
+        return super.shouldInterceptRequest(view, request)
+    }
 
     override fun shouldOverrideUrlLoading(
         view: WebView?,

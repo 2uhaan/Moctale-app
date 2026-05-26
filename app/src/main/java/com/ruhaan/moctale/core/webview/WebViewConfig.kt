@@ -15,6 +15,8 @@ fun WebView.configureMoctaleSettings(context: Context, onDownloadSuccess: () -> 
 
     settings.javaScriptEnabled = true
     settings.domStorageEnabled = true
+    settings.databaseEnabled = true
+    settings.cacheMode = WebSettings.LOAD_DEFAULT
     settings.loadsImagesAutomatically = true
     settings.allowFileAccess = true
     settings.allowContentAccess = true
