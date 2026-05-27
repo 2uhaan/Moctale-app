@@ -24,6 +24,7 @@ class MoctaleWebViewClient(
     private val onUpdateActiveWebView: (WebView?) -> Unit,
     private val onCanGoBackChange: (Boolean) -> Unit,
     private val onPageFinishedLoading: () -> Unit = {},
+    private val onPageStartedLoading: () -> Unit = {}, // ADD THIS
     private val onUrlUpdated: (String) -> Unit = {},
 ) : WebViewClient() {
 
@@ -144,6 +145,15 @@ class MoctaleWebViewClient(
         e.printStackTrace()
       }
     }
+  }
+
+  override fun onPageStarted(
+      view: WebView?,
+      url: String?,
+      favicon: android.graphics.Bitmap?,
+  ) {
+    super.onPageStarted(view, url, favicon)
+    onPageStartedLoading() // Trigger loading state
   }
 
   override fun onPageFinished(

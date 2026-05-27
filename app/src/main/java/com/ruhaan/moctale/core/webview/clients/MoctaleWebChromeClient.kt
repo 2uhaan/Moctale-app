@@ -22,75 +22,89 @@ class MoctaleWebChromeClient(
     private val frameLayout: FrameLayout,
     private val onUpdateActiveWebView: (WebView?) -> Unit,
     private val onCanGoBackChange: (Boolean) -> Unit,
-    private val onDownloadSuccess: () -> Unit
+    private val onDownloadSuccess: () -> Unit,
+    private val onPageStartedLoading: () -> Unit = {}, // ADD THIS
 ) : WebChromeClient() {
 
-    override fun onCreateWindow(
-        view: WebView?,
-        isDialog: Boolean,
-        isUserGesture: Boolean,
-        resultMsg: Message?,
-    ): Boolean {
+  override fun onCreateWindow(
+      view: WebView?,
+      isDialog: Boolean,
+      isUserGesture: Boolean,
+      resultMsg: Message?,
+  ): Boolean {
 
-        val result = view?.hitTestResult
-        val extraUrl = result?.extra
+    val result = view?.hitTestResult
+    val extraUrl = result?.extra
 
-        if (extraUrl != null) {
-            val uri = extraUrl.toUri()
-            val host = uri.host.orEmpty()
-            val isInternal = host.contains("moctale.in")
+    if (extraUrl != null) {
+      val uri = extraUrl.toUri()
+      val host = uri.host.orEmpty()
+      val isInternal = host.contains("moctale.in")
 
-            if (!isInternal) {
-                try {
-                    val intent = Intent(Intent.ACTION_VIEW, uri)
-                    context.startActivity(intent)
-                } catch (_: Exception) {}
+      if (!isInternal) {
+        try {
+          val intent = Intent(Intent.ACTION_VIEW, uri)
+          context.startActivity(intent)
+        } catch (_: Exception) {}
 
-                return false
-            }
-        }
+        return false
+      }
+    }
 
-        val popupWebView = WebView(context).apply {
-            configureMoctaleSettings(context, onDownloadSuccess)
+    val popupWebView =
+        WebView(context).apply {
+          configureMoctaleSettings(context, onDownloadSuccess)
 
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT,
-            )
+          layoutParams =
+              FrameLayout.LayoutParams(
+                  FrameLayout.LayoutParams.MATCH_PARENT,
+                  FrameLayout.LayoutParams.MATCH_PARENT,
+              )
 
-            webViewClient = object : WebViewClient() {
+          webViewClient =
+              object : WebViewClient() {
+
+                override fun onPageStarted(
+                    view: WebView?,
+                    url: String?,
+                    favicon: android.graphics.Bitmap?,
+                ) {
+                  super.onPageStarted(view, url, favicon)
+                  onPageStartedLoading() // Show loader for popup too
+                }
+
                 override fun shouldOverrideUrlLoading(
                     view: WebView?,
                     request: WebResourceRequest?,
                 ): Boolean {
-                    onUpdateActiveWebView(view)
+                  onUpdateActiveWebView(view)
 
-                    val currentUrl = request?.url?.toString() ?: return false
-                    val uri = currentUrl.toUri()
-                    val host = uri.host.orEmpty()
-                    val isInternal = host.contains("moctale.in")
+                  val currentUrl = request?.url?.toString() ?: return false
+                  val uri = currentUrl.toUri()
+                  val host = uri.host.orEmpty()
+                  val isInternal = host.contains("moctale.in")
 
-                    if (isInternal) {
-                        if (view?.parent == null) {
-                            frameLayout.addView(view)
-                        }
-                        return false
+                  if (isInternal) {
+                    if (view?.parent == null) {
+                      frameLayout.addView(view)
+                    }
+                    return false
+                  }
+
+                  return try {
+                    val intent = Intent(Intent.ACTION_VIEW, uri)
+                    context.startActivity(intent)
+
+                    view?.post {
+                      (view.parent as? FrameLayout)?.removeView(view)
+                      view.destroy()
                     }
 
-                    return try {
-                        val intent = Intent(Intent.ACTION_VIEW, uri)
-                        context.startActivity(intent)
-
-                        view?.post {
-                            (view.parent as? FrameLayout)?.removeView(view)
-                            view.destroy()
-                        }
-
-                        onUpdateActiveWebView(mainWebView)
-                        true
-                    } catch (_: Exception) {
-                        false
-                    }
+                    onUpdateActiveWebView(mainWebView)
+                    true
+                  } catch (_: Exception) {
+                    false
+                  }
                 }
 
                 override fun onReceivedError(
@@ -98,24 +112,27 @@ class MoctaleWebChromeClient(
                     request: WebResourceRequest?,
                     error: WebResourceError?,
                 ) {
-                    super.onReceivedError(view, request, error)
-                    android.util.Log.d("WebViewError", "onReceivedError (Popup): url=${request?.url}, isMainFrame=${request?.isForMainFrame}, error=${error?.description}")
+                  super.onReceivedError(view, request, error)
+                  android.util.Log.d(
+                      "WebViewError",
+                      "onReceivedError (Popup): url=${request?.url}, isMainFrame=${request?.isForMainFrame}, error=${error?.description}",
+                  )
                 }
 
                 override fun onPageFinished(
                     view: WebView?,
                     url: String?,
                 ) {
-                    super.onPageFinished(view, url)
+                  super.onPageFinished(view, url)
 
-                    CookieManager.getInstance().flush()
+                  CookieManager.getInstance().flush()
 
-                    onUpdateActiveWebView(view)
-                    onCanGoBackChange(view?.canGoBack() == true)
+                  onUpdateActiveWebView(view)
+                  onCanGoBackChange(view?.canGoBack() == true)
 
-                    view?.evaluateJavascript(WebViewScripts.injectShareScript, null)
-                    view?.evaluateJavascript(WebViewScripts.injectDownloadScript, null)
-                    view?.evaluateJavascript(WebViewScripts.injectVideoFixScript, null)
+                  view?.evaluateJavascript(WebViewScripts.injectShareScript, null)
+                  view?.evaluateJavascript(WebViewScripts.injectDownloadScript, null)
+                  view?.evaluateJavascript(WebViewScripts.injectVideoFixScript, null)
                 }
 
                 override fun doUpdateVisitedHistory(
@@ -123,24 +140,24 @@ class MoctaleWebChromeClient(
                     url: String?,
                     isReload: Boolean,
                 ) {
-                    super.doUpdateVisitedHistory(view, url, isReload)
-                    onCanGoBackChange(view?.canGoBack() == true)
+                  super.doUpdateVisitedHistory(view, url, isReload)
+                  onCanGoBackChange(view?.canGoBack() == true)
                 }
-            }
+              }
         }
 
-        val transport = resultMsg?.obj as WebView.WebViewTransport
-        transport.webView = popupWebView
-        resultMsg.sendToTarget()
+    val transport = resultMsg?.obj as WebView.WebViewTransport
+    transport.webView = popupWebView
+    resultMsg.sendToTarget()
 
-        return true
-    }
+    return true
+  }
 
-    override fun onCloseWindow(window: WebView?) {
-        frameLayout.removeView(window)
-        window?.destroy()
+  override fun onCloseWindow(window: WebView?) {
+    frameLayout.removeView(window)
+    window?.destroy()
 
-        onUpdateActiveWebView(mainWebView)
-        onCanGoBackChange(mainWebView.canGoBack())
-    }
+    onUpdateActiveWebView(mainWebView)
+    onCanGoBackChange(mainWebView.canGoBack())
+  }
 }
