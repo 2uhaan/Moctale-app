@@ -1,8 +1,8 @@
 package com.ruhaan.moctale.core.webview
 
 object WebViewScripts {
-    val injectShareScript =
-        """
+  val injectShareScript =
+      """
       (function() {
 
           async function fileToBase64(file) {
@@ -107,10 +107,10 @@ object WebViewScripts {
 
       })();
       """
-            .trimIndent()
+          .trimIndent()
 
-    val injectDownloadScript =
-        """
+  val injectDownloadScript =
+      """
       (function() {
 
           if (window.__MOCTALE_DOWNLOAD_PATCHED__) return;
@@ -190,10 +190,10 @@ object WebViewScripts {
 
       })();
       """
-            .trimIndent()
+          .trimIndent()
 
-    val injectVideoFixScript =
-        """
+  val injectVideoFixScript =
+      """
       (function() {
 
           function patchVideos() {
@@ -259,5 +259,77 @@ object WebViewScripts {
 
       })();
       """
-            .trimIndent()
+          .trimIndent()
+
+  val injectScrollBridgeScript =
+      """
+      (function() {
+          if (window.__MOCTALE_SCROLL_BRIDGE_PATCHED__) return;
+          window.__MOCTALE_SCROLL_BRIDGE_PATCHED__ = true;
+
+          function isScrollable(el) {
+              var style = window.getComputedStyle(el);
+              var overflow = style.overflow + style.overflowY;
+              return overflow.includes('auto') || overflow.includes('scroll');
+          }
+
+          function checkScroll() {
+              var docTop = (document.scrollingElement || document.documentElement).scrollTop;
+              if (docTop > 10) {
+                  if (window.ScrollBridge) ScrollBridge.reportScrollTop(false);
+                  return;
+              }
+              var all = document.querySelectorAll('div');
+              for (var i = 0; i < all.length; i++) {
+                  var el = all[i];
+                  if (isScrollable(el) && el.scrollTop > 10) {
+                      if (window.ScrollBridge) ScrollBridge.reportScrollTop(false);
+                      return;
+                  }
+              }
+              if (window.ScrollBridge) ScrollBridge.reportScrollTop(true);
+          }
+
+          function attachScrollListener(el) {
+              if (el.__moctale_scroll_bound__) return;
+              el.__moctale_scroll_bound__ = true;
+              el.addEventListener('scroll', checkScroll, { passive: true });
+          }
+
+          // Attach to any scrollable div that already exists
+          document.querySelectorAll('div').forEach(function(el) {
+              if (isScrollable(el)) attachScrollListener(el);
+          });
+
+          // Watch for new divs being added (overlay panels, dropdowns)
+          var observer = new MutationObserver(function(mutations) {
+              mutations.forEach(function(mutation) {
+                  mutation.addedNodes.forEach(function(node) {
+                      if (node.nodeType !== 1) return;
+                      if (node.tagName === 'DIV' && isScrollable(node)) {
+                          attachScrollListener(node);
+                      }
+                      node.querySelectorAll && node.querySelectorAll('div').forEach(function(el) {
+                          if (isScrollable(el)) attachScrollListener(el);
+                      });
+                  });
+              });
+          });
+
+          observer.observe(document.documentElement, { childList: true, subtree: true });
+
+          window.addEventListener('scroll', checkScroll, { passive: true });
+
+          var _pushState = history.pushState;
+          history.pushState = function() {
+              _pushState.apply(history, arguments);
+              setTimeout(function() {
+                  window.__MOCTALE_SCROLL_BRIDGE_PATCHED__ = false;
+              }, 300);
+          };
+
+          checkScroll();
+      })();
+      """
+          .trimIndent()
 }
