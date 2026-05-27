@@ -24,8 +24,9 @@ class MoctaleWebViewClient(
     private val onUpdateActiveWebView: (WebView?) -> Unit,
     private val onCanGoBackChange: (Boolean) -> Unit,
     private val onPageFinishedLoading: () -> Unit = {},
-    private val onPageStartedLoading: () -> Unit = {}, // ADD THIS
+    private val onPageStartedLoading: () -> Unit = {},
     private val onUrlUpdated: (String) -> Unit = {},
+    private val onInjectScrollBridge: (WebView?) -> Unit = {},
 ) : WebViewClient() {
 
   override fun shouldInterceptRequest(
@@ -173,6 +174,7 @@ class MoctaleWebViewClient(
     view?.evaluateJavascript(WebViewScripts.injectShareScript, null)
     view?.evaluateJavascript(WebViewScripts.injectDownloadScript, null)
     view?.evaluateJavascript(WebViewScripts.injectVideoFixScript, null)
+    view?.evaluateJavascript(WebViewScripts.injectScrollBridgeScript, null)
 
     onPageFinishedLoading()
   }
@@ -184,9 +186,10 @@ class MoctaleWebViewClient(
   ) {
     super.doUpdateVisitedHistory(view, url, isReload)
 
-    // Add this line to catch SPA client-side navigations!
     url?.let { onUrlUpdated(it) }
 
     onCanGoBackChange(view?.canGoBack() == true)
+
+    onInjectScrollBridge(view)
   }
 }

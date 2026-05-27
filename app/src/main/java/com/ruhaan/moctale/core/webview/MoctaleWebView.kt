@@ -78,6 +78,13 @@ fun MoctaleWebView(url: String) {
                   setOnRefreshListener { mainWebView.loadUrl(lastAttemptedUrl) }
                 }
 
+            class ScrollBridge(private val onScrollResult: (Boolean) -> Unit) {
+              @android.webkit.JavascriptInterface
+              fun reportScrollTop(isAtTop: Boolean) {
+                mainHandler.post { onScrollResult(isAtTop) }
+              }
+            }
+
             mainWebView =
                 object : WebView(context) {
                       override fun onProvideAutofillVirtualStructure(
@@ -92,6 +99,11 @@ fun MoctaleWebView(url: String) {
                           android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
                       activeWebView = this
 
+                      addJavascriptInterface(
+                          ScrollBridge { isAtTop -> swipeRefreshLayout.isEnabled = isAtTop },
+                          "ScrollBridge",
+                      )
+
                       configureMoctaleSettings(context) {
                         scope.launch { snackbarHostState.showSnackbar("Saved to gallery") }
                       }
@@ -104,9 +116,15 @@ fun MoctaleWebView(url: String) {
                               onCanGoBackChange = { canGoBack = it },
                               onPageFinishedLoading = {
                                 swipeRefreshLayout.isRefreshing = false
-                                isPageLoading = false // ADD THIS
+                                isPageLoading = false
                               },
                               onUrlUpdated = { newUrl -> lastAttemptedUrl = newUrl },
+                              onInjectScrollBridge = { view ->
+                                view?.evaluateJavascript(
+                                    WebViewScripts.injectScrollBridgeScript,
+                                    null,
+                                )
+                              },
                           )
 
                       webChromeClient =
